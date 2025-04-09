@@ -1,0 +1,593 @@
+<!-- <!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Stream</title>
+    <style>
+        #videoContainer {
+            width: 640px;
+            height: 480px;
+            margin: 20px auto;
+            border: 2px solid #333;
+        }
+        #liveVideo {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+        button {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="liveVideo" autoplay playsinline></video>
+    </div>
+    <button id="startButton">Start Camera</button>
+    <button id="stopButton" disabled>Stop Camera</button>
+    <button id="callButton">Call</button>
+    <button id="hangupButton">Hang Up</button>
+
+    <script>
+        const videoElement = document.getElementById('liveVideo');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const callButton = document.getElementById('callButton');
+        const hangupButton = document.getElementById('hangupButton');
+        let stream_cam;
+
+        // Start camera
+        startButton.addEventListener('click', async () => {
+            try {
+                stream_cam = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user' // or 'environment' for rear camera
+                    },
+                    audio: false // set to true if you want audio
+                });
+                
+                videoElement.srcObject = stream_cam;
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                
+                console.log("Camera is now active");
+            } catch (error) {
+                console.error("Error accessing camera:", error);
+                alert("Could not access the camera. Please ensure you've granted permission.");
+            }
+        });
+
+        // Stop camera
+        stopButton.addEventListener('click', () => {
+            if (stream_cam) {
+                stream_cam.getTracks().forEach(track => track.stop());
+                videoElement.srcObject = null;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                console.log("Camera stopped");
+            }
+        });
+
+
+        callButton.addEventListener('click', () => {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+            const pc = new RTCPeerConnection({
+                iceServers: [] // No STUN/TURN (pure direct connection)
+            });
+
+            // Add local stream to connection
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+            // Manually set ICE candidate (Device B's IP)
+            pc.addIceCandidate({
+                candidate: "candidate:1 1 UDP 2122252543 192.168.1.101 50005 typ host",
+                sdpMid: "0",
+                sdpMLineIndex: 0
+            });
+
+            // Create offer
+            pc.createOffer()
+                .then(offer => pc.setLocalDescription(offer))
+                .then(() => {
+                // Manually send offer to Device B (e.g., via copy-paste)
+                console.log("Offer SDP:\n\n", pc.localDescription.sdp);
+                console.log("end of offer\n\n");
+                });
+            })
+            .catch(error => {
+            console.error("Error getting user media:", error);
+            });
+        });
+
+
+
+
+
+
+    </script>
+</body>
+</html> -->
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebRTC Video Call</title>
+    <style>
+        video {
+            width: 400px;
+            height: 300px;
+            background: black;
+            margin: 10px;
+        }
+        #localVideo {
+            transform: scaleX(-1); /* Mirror effect for self-view */
+        }
+        .container {
+            display: flex;
+        }
+    </style>
+    <!-- <script src="app.js" type="module"></script> -->
+</head>
+<body>
+    <div class="container">
+        <video id="localVideo" autoplay playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+    
+    <button id="openWebcam">openWebcam</button>
+    <button id="closeWebcam" disabled>closeWebcam</button>
+    <button id="callButton">call</button>
+    <button id="hangupButton">hangup</button>
+
+    <input id="answerSdp" placeholder="answerSdp"/>
+    <button id="answerButton">answer</button>
+    <!-- <script>
+        
+        const localVideo = document.getElementById('localVideo');
+        const remoteVideo = document.getElementById('remoteVideo');
+        const offerSdp = document.getElementById('offerSdp');
+        const answerSdp = document.getElementById('answerSdp');
+        const startButton = document.getElementById('startButton');
+        const hangupButton = document.getElementById('hangupButton');
+        const setAnswer = document.getElementById('setAnswer');
+        const candidate = document.getElementById('candidate');
+        const sdpMid = document.getElementById('sdpMid');
+        const sdpMLineIndex = document.getElementById('sdpMLineIndex');
+const addCandidateBtn = document.getElementById('addCandidate');
+
+
+let count=0;
+
+
+        
+        let pc=new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+ // Empty for local network only
+        });;
+        let localStream;
+
+
+
+        
+// In your ontrack handler:
+pc.ontrack = (event) => {
+    count++;
+    console.log("count", count);
+    if (remoteVideo.srcObject !== event.streams[0]) {
+        remoteVideo.srcObject = event.streams[0];
+        remoteVideo.play().catch(err => {
+            console.error("⚠️ remoteVideo.play() failed:", err);
+        });
+    }else{
+        console.log("remoteVideo.srcObject already set");
+    }
+  };
+  
+  /*
+
+        pc.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remoteVideo');
+            
+            // Wait for metadata to load
+            remoteVideo.onloadedmetadata = () => {
+              remoteVideo.play()
+                .then(() => console.log("Playing successfully"))
+                .catch(e => {
+                  // Fallback to muted play if needed
+                  remoteVideo.muted = true;
+                  remoteVideo.play();
+                });
+            };
+            
+            remoteVideo.srcObject = event.streams[0];
+          };
+        */
+
+        pc.onconnectionstatechange = () => {
+            console.log("🔄 Connection state:", pc.connectionState);
+        };
+        
+        pc.onsignalingstatechange = () => {
+            console.log("📶 Signaling state:", pc.signalingState);
+        };
+        
+        pc.oniceconnectionstatechange = () => {
+            console.log("🧊 ICE connection state:", pc.iceConnectionState);
+        };
+        
+
+        
+        addCandidateBtn.addEventListener('click', async () => {
+            try {
+                const candidateCreate = new RTCIceCandidate({
+                    candidate: candidate.value,
+                    sdpMid: sdpMid.value,
+                    sdpMLineIndex: parseInt(sdpMLineIndex.value),
+                });
+
+                console.log("candidate", candidateCreate);
+                
+                await pc.addIceCandidate(new RTCIceCandidate(candidateCreate));
+                console.log('ICE Candidate added:', candidateCreate);
+                pc.oniceconnectionstatechange = () => {
+                    console.log("ICE Connection State:", pc.iceConnectionState);
+                };
+                
+            } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+            }
+        });
+        // Start the call
+        startButton.addEventListener('click', async () => {
+            try {
+                // Get local media
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: true, 
+                    audio: true 
+                });
+                localVideo.srcObject = localStream;
+                
+                // Add local stream to connection
+                localStream.getTracks().forEach(track => {
+                    pc.addTrack(track, localStream);
+                });
+                
+                // Handle incoming tracks
+                pc.ontrack = (event) => {
+                    count++;
+                    console.log("count", count);
+                    console.log("---------log of ontrack event---------");
+                    remoteVideo.srcObject = event.streams[0];
+                    remoteVideo.play().catch(err => {
+                        console.error("⚠️ remoteVideo.play() failed:", err);
+                    });
+                };
+                
+                // Create offer
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                // Show offer in textarea
+                offerSdp.value = offer.sdp;
+                
+                startButton.disabled = true;
+                hangupButton.disabled = false;
+                
+            } catch (error) {
+                console.error("Error starting call:", error);
+            }
+        });
+        
+        // Set the remote answer
+        setAnswer.addEventListener('click', async () => {
+            try {
+                
+                // Debug: Check connection state
+                console.log("Connection state before setting answer:", pc.signalingState);
+
+                console.log("offerSdp.value", answerSdp.value);
+                
+                const offer = {
+                    type: 'offer',
+                    sdp: answerSdp.value.replace(/\n/g, '\r\n'),
+                };
+
+                console.log("offer", offer.sdp);
+                
+                // Ensure we have a local description set first
+                /*if (pc.signalingState !== 'have-local-offer') {
+                    throw new Error('Must create an offer before setting an answer');
+                }*/
+                pc.oniceconnectionstatechange = () => {
+                    console.log("ICE Connection State:", pc.iceConnectionState);
+                };
+                
+                
+                await pc.setRemoteDescription(new RTCSessionDescription(offer));
+console.log("Remote description set successfully");
+                const newAnswer = await pc.createAnswer();
+                console.log("answer created");
+                await pc.setLocalDescription(newAnswer);
+                offerSdp.value = pc.localDescription.sdp;
+                pc.oniceconnectionstatechange = () => {
+                    console.log("ICE Connection State:", pc.iceConnectionState);
+                };
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log("Callee ICE candidate:", event.candidate);
+                        // You should manually copy this to caller's candidate input and call addIceCandidate on the caller.
+                    }
+                };
+                
+                
+
+            } catch (error) {
+                console.error("Error setting answer:", error);
+            }
+        });
+        
+        // Hang up
+        hangupButton.addEventListener('click', () => {
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localVideo.srcObject = null;
+                remoteVideo.srcObject = null;
+            }
+            startButton.disabled = false;
+            hangupButton.disabled = true;
+        });
+    </script> -->
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
+        import {
+            getFirestore,
+            collection,
+            doc,
+            setDoc,
+            getDoc,
+            onSnapshot,
+            updateDoc,
+            addDoc
+          } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+          
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+      
+        // Your web app's Firebase configuration
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+          apiKey: "AIzaSyCE6uu63O91LA5eCfKKIz6n5_dHWm4nwpw",
+          authDomain: "videocall-174e6.firebaseapp.com",
+          projectId: "videocall-174e6",
+          storageBucket: "videocall-174e6.firebasestorage.app",
+          messagingSenderId: "965109245557",
+          appId: "1:965109245557:web:eb5e5c760d3b41dbda7a3c",
+          measurementId: "G-N1W0W2C8X0"
+        };
+      
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const db = getFirestore(app);
+
+
+
+        
+const servers = {
+    iceServers: [
+        {
+            urls:["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"]
+        }
+    ],
+    iceCandidatePoolSize: 10,
+};
+
+const pc = new RTCPeerConnection(servers);
+let localStream;
+let remoteStream;
+
+const localVideo = document.getElementById("localVideo");
+const remoteVideo = document.getElementById("remoteVideo");
+
+const callButton = document.getElementById("callButton");
+const hangupButton = document.getElementById("hangupButton");
+
+const answerSdp = document.getElementById("answerSdp");
+const answerButton = document.getElementById("answerButton");
+
+let callDoc;
+let offerCandidate;
+let answerCandidate;
+
+const openWebcam = document.getElementById("openWebcam");
+openWebcam.addEventListener("click", async () => {
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+        });
+        remoteStream = new MediaStream();
+        localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, localStream);
+        });
+        pc.ontrack = (event) => {
+            console.log("ontrack event", event);
+            event.streams[0].getTracks().forEach((track) => {
+                remoteStream.addTrack(track);
+            });
+        };
+        localVideo.srcObject = localStream;
+        remoteVideo.srcObject = remoteStream;
+    } catch (error) {
+        console.error("Error accessing webcam:", error);
+    }
+})
+
+callButton.addEventListener("click",async () => {
+    if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        remoteStream = new MediaStream();
+        localStream.getTracks().forEach((track) => {
+            pc.addTrack(track, localStream);
+        });
+        pc.ontrack = (event) => {
+            event.streams[0].getTracks().forEach((track) => {
+                remoteStream.addTrack(track);
+            });
+        };
+        localVideo.srcObject = localStream;
+        remoteVideo.srcObject = remoteStream;
+    }
+    callDoc =  doc(collection(db,"calls"));
+    offerCandidate = collection(callDoc,"offerCandidates");
+    answerCandidate = collection(callDoc,"answerCandidates");
+
+    answerSdp.value = callDoc.id;
+
+    pc.onicecandidate = async (event) => {
+        if (event.candidate) {
+            try {
+                await addDoc(offerCandidate,event.candidate.toJSON());
+                console.log("✅ Offer candidate written to Firestore");
+            } catch (e) {
+                console.error("❌ Error writing offer candidate:", e);
+            }
+        }
+    }
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    const offerObj={
+        sdp: offer.sdp,
+        type: offer.type,
+    }
+
+    try {
+        await setDoc(callDoc, { offer: offerObj });
+        console.log("✅ Offer written to Firestore");
+      } catch (e) {
+        console.error("❌ Error writing offer:", e);
+      }
+      
+
+    onSnapshot(callDoc, (snapshot) => {
+        const data = snapshot.data();
+        console.log("data", data);
+        if (!pc.currentRemoteDescription && data?.answer) {
+            console.log("setting remote description");
+            const answer = new RTCSessionDescription(data.answer);
+            pc.setRemoteDescription(answer);
+            console.log("✅ Remote description set");
+
+        }
+    })
+
+
+
+    onSnapshot(answerCandidate, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                const candidate = new RTCIceCandidate(change.doc.data());
+    
+                // Only add candidate if remote description has been set
+                if (pc.remoteDescription) {
+                    pc.addIceCandidate(candidate)
+                        .then(() => console.log("✅ ICE candidate added"))
+                        .catch(e => console.error("❌ Error adding candidate", e));
+                } else {
+                    console.warn("🚫 Skipped ICE candidate - remote description not set yet");
+                    // Optionally: store it in an array and retry later
+                }
+            }
+        });
+    });
+    
+})
+
+let remoteCandidatesQueue = [];
+let isRemoteDescriptionSet = false;
+
+answerButton.addEventListener("click", async () => {
+    const callId = answerSdp.value;
+    const callDoc = doc(collection(db,"calls"),callId);
+    const answerCandidate = collection(callDoc,"answerCandidates");
+    const offerCandidate = collection(callDoc,"offerCandidates");
+
+    pc.onicecandidate = (event) => {
+        event.candidate && addDoc(answerCandidate,event.candidate.toJSON());
+    }
+
+    const callData = (await getDoc(callDoc)).data();
+    
+    const callOfferDescription = callData.offer;
+    await pc.setRemoteDescription(new RTCSessionDescription(callOfferDescription));
+
+    isRemoteDescriptionSet = true;
+
+    // ✅ After setting remote description, apply any queued candidates
+    remoteCandidatesQueue.forEach(candidate => pc.addIceCandidate(candidate));
+    remoteCandidatesQueue = [];
+
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+
+    const answerObj = {
+        sdp: answer.sdp,
+        type: answer.type,
+    }
+
+    await updateDoc(callDoc, {
+        answer: answerObj,
+    });
+
+    onSnapshot(offerCandidate, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "added") {
+                const data = change.doc.data();
+                const candidate = new RTCIceCandidate(data);
+
+                if (isRemoteDescriptionSet) {
+                    pc.addIceCandidate(candidate);
+                } else {
+                    remoteCandidatesQueue.push(candidate);
+                }
+            }
+        });
+    });
+        
+        
+    
+        
+})
+
+      </script>
+
+</body>
+</html>
